@@ -5,18 +5,19 @@ import re
 
 app = Flask(__name__)
 
+# --- THE FRONTEND (Internet Explorer Compatible) ---
 INDEX_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
     <title>MEDIA STATION</title>
     <style>
-        body { font-family: "Courier New", monospace; padding: 20px; background: #c0c0c0; }
-        .box { border: 2px solid #000; background: #d4d0c8; padding: 15px; width: 520px; box-shadow: 2px 2px 0px #000; margin: auto; }
+        body { font-family: "Courier New", monospace; padding: 20px; background: #c0c0c0; color: #000; }
+        .box { border: 2px solid #000; background: #d4d0c8; padding: 15px; width: 500px; box-shadow: 2px 2px 0px #000; margin: auto; }
         .title-bar { background: #000080; color: #fff; padding: 3px; font-weight: bold; margin: -15px -15px 15px -15px; }
         .result-item { margin-bottom: 15px; padding: 10px; border: 1px solid #808080; background: #fff; }
         #status { font-weight: bold; margin: 10px 0; color: #000080; height: 20px; }
-        .menu-btn { width: 100%; padding: 15px; margin-bottom: 10px; font-weight: bold; cursor: pointer; }
+        .menu-btn { width: 100%; padding: 15px; margin-bottom: 10px; font-weight: bold; cursor: pointer; font-family: "Courier New", monospace; }
         .nav-bar { margin-bottom: 15px; border-bottom: 1px solid #808080; padding-bottom: 5px; }
         button { cursor: pointer; padding: 5px; font-family: "Courier New", monospace; }
         #main-ui { display: none; }
@@ -24,17 +25,17 @@ INDEX_HTML = """
 </head>
 <body>
     <div class="box">
-        <div class="title-bar"> MEDIA_STATION_PRO.EXE</div>
+        <div class="title-bar"> MEDIA_STATION_V6_FINAL.EXE</div>
         
         <div id="home-menu">
-            <p>SELECT DOWNLOAD STATION:</p>
+            <p>SELECT STATION:</p>
             <button class="menu-btn" onclick="openStation('sc')">SOUNDCLOUD (MP3)</button>
             <button class="menu-btn" onclick="openStation('yt')">YOUTUBE (MP4 VIDEO)</button>
         </div>
 
         <div id="main-ui">
             <div class="nav-bar">
-                <button onclick="goHome()"><< BACK TO MENU</button>
+                <button onclick="goHome()"><< MENU</button>
                 <span id="station-name" style="margin-left:20px; font-weight:bold;"></span>
             </div>
             <input type="text" id="q" style="width:70%;">
@@ -45,7 +46,7 @@ INDEX_HTML = """
     </div>
 
     <script type="text/javascript">
-        var currentMode = 'sc'; // 'sc' or 'yt'
+        var currentMode = 'sc';
 
         function openStation(mode) {
             currentMode = mode;
@@ -122,6 +123,8 @@ INDEX_HTML = """
 </html>
 """
 
+# --- THE BACKEND (Server Logic) ---
+
 @app.route('/')
 def index():
     return INDEX_HTML
@@ -130,57 +133,76 @@ def index():
 def search_api():
     query = request.args.get('q')
     mode = request.args.get('mode', 'sc')
-    
-    # Prefix search based on mode
     search_prefix = "scsearch5:" if mode == "sc" else "ytsearch5:"
     
     ydl_opts = {'quiet': True, 'extract_flat': True}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(f"{search_prefix}{query}", download=False)
-        entries = [{
-            'title': e.get('title'), 
-            'url': e.get('url'), 
-            # 'uploader' for SC, 'channel' for YT
-            'author': e.get('uploader') or e.get('channel') or 'Unknown'
-        } for e in info['entries']]
-    return jsonify(entries)
+        try:
+            info = ydl.extract_info(f"{search_prefix}{query}", download=False)
+            entries = [{
+                'title': e.get('title'), 
+                'url': e.get('url'), 
+                'author': e.get('uploader') or e.get('channel') or 'Unknown'
+            } for e in info['entries']]
+            return jsonify(entries)
+        except Exception as e:
+            return jsonify([])
 
 @app.route('/api/download')
 def download_api():
     url = request.args.get('url')
     mode = request.args.get('mode', 'sc')
-    name = re.sub(r'[\\/*?:"<>|]', "", request.args.get('name', 'file'))
     
-    temp_file = "dl_workfile"
+    # Aggressive filename cleaning for IE/Windows stability
+    raw_name = request.args.get('name', 'file')
+    clean_name = re.sub(r'[^a-zA-Z0-9 \-]', '', raw_name).strip()
     
-    # Setup options based on mode
+    temp_base = "dl_workfile"
+    
     if mode == 'sc':
         opts = {
             'format': 'bestaudio/best',
-            'outtmpl': temp_file,
+            'outtmpl': temp_base,
             'postprocessors': [{'key': 'FFmpegExtractAudio','preferredcodec': 'mp3','preferredquality': '192'}],
         }
         ext = "mp3"
         mimetype = "audio/mpeg"
     else:
-        # Best video + audio combined into mp4
+        # 'best[ext=mp4]' avoids complex merges on small servers
         opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-            'outtmpl': temp_file + ".mp4",
+            'format': 'best[ext=mp4]/best',
+            'outtmpl': temp_base + ".mp4",
+            'noplaylist': True,
         }
         ext = "mp4"
         mimetype = "video/mp4"
 
-    # Cleanup old temp files
-    for f in [f"{temp_file}.mp3", f"{temp_file}.mp4"]:
-        if os.path.exists(f): os.remove(f)
+    # Precise cleanup
+    for f_ext in ["mp3", "mp4"]:
+        path = f"{temp_base}.{f_ext}"
+        if os.path.exists(path):
+            try: os.remove(path)
+            except: pass
 
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        ydl.download([url])
-    
-    actual_file = f"{temp_file}.{ext}"
-    return send_file(actual_file, as_attachment=True, download_name=f"{name}.{ext}", mimetype=mimetype)
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.download([url])
+        
+        actual_file = f"{temp_base}.{ext}"
+        
+        if not os.path.exists(actual_file):
+            return "Server failed to produce file", 500
+            
+        return send_file(
+            actual_file, 
+            as_attachment=True, 
+            download_name=f"{clean_name}.{ext}", 
+            mimetype=mimetype
+        )
+    except Exception as e:
+        return f"Error: {str(e)}", 500
 
 if __name__ == '__main__':
+    # Required for Render/Cloud deployment
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
