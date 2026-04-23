@@ -12,62 +12,69 @@ INDEX_HTML = """
 <head>
     <title>SC STATION</title>
     <style>
-        body { font-family: monospace; padding: 20px; background: #c0c0c0; color: #000; }
+        body { font-family: "Courier New", monospace; padding: 20px; background: #c0c0c0; color: #000; }
         .box { border: 2px solid #000; background: #d4d0c8; padding: 15px; width: 500px; box-shadow: 2px 2px 0px #000; }
         .title-bar { background: #000080; color: #fff; padding: 3px; font-weight: bold; margin: -15px -15px 15px -15px; }
         .result-item { margin-bottom: 15px; padding: 10px; border: 1px solid #808080; background: #fff; }
-        .artist { color: #555; font-size: 11px; text-transform: uppercase; }
         #status { font-weight: bold; margin: 10px 0; color: #000080; }
-        button { cursor: pointer; font-family: monospace; padding: 5px; }
     </style>
 </head>
 <body>
     <div class="box">
-        <div class="title-bar"> SC_STATION_V2.EXE</div>
+        <div class="title-bar"> SC_STATION_IE_COMPAT.EXE</div>
+        
         <input type="text" id="q" placeholder="Artist or Song..." style="width:70%;">
-        <button onclick="search()">SEARCH</button>
+        <button id="searchBtn" onclick="search()">SEARCH</button>
+        
         <div id="status">Status: Ready.</div>
         <div id="results"></div>
     </div>
 
-    <script>
+    <script type="text/javascript">
+        // Old-school AJAX function because IE hates 'fetch'
         function search() {
-            const q = document.getElementById('q').value;
-            const status = document.getElementById('status');
-            const resDiv = document.getElementById('results');
+            var q = document.getElementById('q').value;
+            var status = document.getElementById('status');
+            var resDiv = document.getElementById('results');
+            
             if(!q) return;
-            status.innerText = "Status: Searching...";
+
+            status.innerHTML = "Status: Searching...";
             resDiv.innerHTML = "";
 
-            fetch('/api/search?q=' + encodeURIComponent(q))
-                .then(res => res.json())
-                .then(data => {
-                    status.innerText = "Status: Results loaded.";
-                    data.forEach(item => {
-                        const d = document.createElement('div');
-                        d.className = 'result-item';
-                        // Clean title for URL passing
-                        const safeName = `${item.artist} - ${item.title}`;
-                        d.innerHTML = `
-                            <span class="artist">${item.artist}</span><br>
-                            <b>${item.title}</b><br><br>
-                            <button onclick="download('${item.url}', '${encodeURIComponent(safeName)}')">DOWNLOAD MP3</button>
-                        `;
-                        resDiv.appendChild(d);
-                    });
-                });
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/search?q=' + encodeURIComponent(q), true);
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    var data = JSON.parse(xhr.responseText);
+                    status.innerHTML = "Status: " + data.length + " results found.";
+                    var html = "";
+                    for (var i = 0; i < data.length; i++) {
+                        var item = data[i];
+                        var safeName = encodeURIComponent(item.artist + " - " + item.title);
+                        html += '<div class="result-item">' +
+                                '<small>' + item.artist + '</small><br>' +
+                                '<b>' + item.title + '</b><br><br>' +
+                                '<button onclick="download(\'' + item.url + '\', \'' + safeName + '\')">DOWNLOAD MP3</button>' +
+                                '</div>';
+                    }
+                    resDiv.innerHTML = html;
+                }
+            };
+            xhr.send();
         }
 
         function download(url, fileName) {
-            const status = document.getElementById('status');
-            const resDiv = document.getElementById('results');
-            resDiv.innerHTML = "";
-            status.innerText = "Status: DOWNLOADING " + decodeURIComponent(fileName) + "...";
+            var status = document.getElementById('status');
+            status.innerHTML = "Status: DOWNLOADING... CHECK TERMINAL";
             
-            // Pass the custom filename to the backend
-            window.location.href = `/api/download?url=${encodeURIComponent(url)}&name=${fileName}`;
+            // Standard location change works in IE
+            window.location.href = '/api/download?url=' + encodeURIComponent(url) + '&name=' + fileName;
             
-            setTimeout(() => { status.innerText = "Status: Ready."; }, 12000);
+            setTimeout(function() {
+                status.innerHTML = "Status: Ready.";
+            }, 10000);
         }
     </script>
 </body>
