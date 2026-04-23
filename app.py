@@ -16,11 +16,12 @@ INDEX_HTML = """
         .title-bar { background: #000080; color: #fff; padding: 3px; font-weight: bold; margin: -15px -15px 15px -15px; }
         .result-item { margin-bottom: 15px; padding: 10px; border: 1px solid #808080; background: #fff; }
         #status { font-weight: bold; margin: 10px 0; color: #000080; }
+        button { cursor: pointer; padding: 5px; font-family: "Courier New", monospace; }
     </style>
 </head>
 <body>
     <div class="box">
-        <div class="title-bar"> SC_STATION_V4.EXE</div>
+        <div class="title-bar"> SC_STATION_V5_FINAL.EXE</div>
         <input type="text" id="q" style="width:70%;">
         <button type="button" onclick="search()">SEARCH</button>
         <div id="status">Status: Ready.</div>
@@ -38,7 +39,6 @@ INDEX_HTML = """
             resDiv.innerHTML = "";
 
             var xhr = new XMLHttpRequest();
-            // IE cache fix: add a random timestamp to the URL
             var url = '/api/search?q=' + encodeURIComponent(q) + '&t=' + new Date().getTime();
             
             xhr.open('GET', url, true);
@@ -48,41 +48,52 @@ INDEX_HTML = """
                         var data = JSON.parse(xhr.responseText);
                         status.innerHTML = "Status: " + data.length + " results.";
                         
-                        var container = document.createElement('div');
                         for (var i = 0; i < data.length; i++) {
                             var item = data[i];
+                            
+                            // Create the container
                             var itemDiv = document.createElement('div');
                             itemDiv.className = 'result-item';
                             
-                            // Using innerText for safety, then adding button
-                            var info = document.createElement('div');
-                            info.innerHTML = '<small>' + item.artist + '</small><br><b>' + item.title + '</b><br><br>';
+                            // Create Artist Text
+                            var artistSpan = document.createElement('small');
+                            artistSpan.appendChild(document.createTextNode(item.artist));
+                            itemDiv.appendChild(artistSpan);
+                            itemDiv.appendChild(document.createElement('br'));
                             
+                            // Create Title Text
+                            var titleBold = document.createElement('b');
+                            titleBold.appendChild(document.createTextNode(item.title));
+                            itemDiv.appendChild(titleBold);
+                            itemDiv.appendChild(document.createElement('br'));
+                            itemDiv.appendChild(document.createElement('br'));
+                            
+                            // Create Button
                             var btn = document.createElement('button');
                             btn.innerHTML = "DOWNLOAD";
                             
-                            // This is the safest way for IE to handle variables in loops
-                            (function(u, a, t) {
-                                btn.onclick = function() { download(u, a, t); };
-                            })(item.url, item.artist, item.title);
+                            // Attach event without strings
+                            setupDownload(btn, item.url, item.artist, item.title);
                             
-                            itemDiv.appendChild(info);
                             itemDiv.appendChild(btn);
                             resDiv.appendChild(itemDiv);
                         }
                     } else {
-                        status.innerHTML = "Status: Server Error (" + xhr.status + ")";
+                        status.innerHTML = "Status: Error " + xhr.status;
                     }
                 }
             };
             xhr.send();
         }
 
-        function download(url, artist, title) {
-            var status = document.getElementById('status');
-            status.innerHTML = "Status: DOWNLOADING...";
-            var fileName = encodeURIComponent(artist + " - " + title);
-            window.location.href = '/api/download?url=' + encodeURIComponent(url) + '&name=' + fileName;
+        // Separate function to avoid loop variable closure issues in IE
+        function setupDownload(btn, url, artist, title) {
+            btn.onclick = function() {
+                var status = document.getElementById('status');
+                status.innerHTML = "Status: DOWNLOADING...";
+                var fileName = encodeURIComponent(artist + " - " + title);
+                window.location.href = '/api/download?url=' + encodeURIComponent(url) + '&name=' + fileName;
+            };
         }
     </script>
 </body>
