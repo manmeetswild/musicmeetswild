@@ -16,52 +16,78 @@ INDEX_HTML = """
         .title-bar { background: #000080; color: #fff; padding: 3px; font-weight: bold; margin: -15px -15px 15px -15px; }
         .result-item { margin-bottom: 15px; padding: 10px; border: 1px solid #808080; background: #fff; }
         #status { font-weight: bold; margin: 10px 0; color: #000080; }
-        button { cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="box">
-        <div class="title-bar"> SC_STATION_V3_IE.EXE</div>
+        <div class="title-bar"> SC_STATION_V4.EXE</div>
         <input type="text" id="q" style="width:70%;">
-        <button onclick="search()">SEARCH</button>
+        <button type="button" onclick="search()">SEARCH</button>
         <div id="status">Status: Ready.</div>
         <div id="results"></div>
     </div>
+
     <script type="text/javascript">
         function search() {
             var q = document.getElementById('q').value;
             var status = document.getElementById('status');
             var resDiv = document.getElementById('results');
             if(!q) return;
+
             status.innerHTML = "Status: Searching...";
             resDiv.innerHTML = "";
+
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', '/api/search?q=' + encodeURIComponent(q), true);
+            // IE cache fix: add a random timestamp to the URL
+            var url = '/api/search?q=' + encodeURIComponent(q) + '&t=' + new Date().getTime();
+            
+            xhr.open('GET', url, true);
             xhr.onreadystatechange = function() {
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    var data = JSON.parse(xhr.responseText);
-                    status.innerHTML = "Status: " + data.length + " found.";
-                    var html = "";
-                    for (var i = 0; i < data.length; i++) {
-                        var item = data[i];
-                        var safeName = encodeURIComponent(item.artist + " - " + item.title);
-                        html += '<div class="result-item"><small>'+item.artist+'</small><br><b>'+item.title+'</b><br><br>' +
-                                '<button onclick="download(\''+item.url+'\', \''+safeName+'\')">DOWNLOAD</button></div>';
+                if (xhr.readyState == 4) {
+                    if (xhr.status == 200) {
+                        var data = JSON.parse(xhr.responseText);
+                        status.innerHTML = "Status: " + data.length + " results.";
+                        
+                        var container = document.createElement('div');
+                        for (var i = 0; i < data.length; i++) {
+                            var item = data[i];
+                            var itemDiv = document.createElement('div');
+                            itemDiv.className = 'result-item';
+                            
+                            // Using innerText for safety, then adding button
+                            var info = document.createElement('div');
+                            info.innerHTML = '<small>' + item.artist + '</small><br><b>' + item.title + '</b><br><br>';
+                            
+                            var btn = document.createElement('button');
+                            btn.innerHTML = "DOWNLOAD";
+                            
+                            // This is the safest way for IE to handle variables in loops
+                            (function(u, a, t) {
+                                btn.onclick = function() { download(u, a, t); };
+                            })(item.url, item.artist, item.title);
+                            
+                            itemDiv.appendChild(info);
+                            itemDiv.appendChild(btn);
+                            resDiv.appendChild(itemDiv);
+                        }
+                    } else {
+                        status.innerHTML = "Status: Server Error (" + xhr.status + ")";
                     }
-                    resDiv.innerHTML = html;
                 }
             };
             xhr.send();
         }
-        function download(url, n) {
-            document.getElementById('status').innerHTML = "Status: DOWNLOADING...";
-            window.location.href = '/api/download?url=' + encodeURIComponent(url) + '&name=' + n;
+
+        function download(url, artist, title) {
+            var status = document.getElementById('status');
+            status.innerHTML = "Status: DOWNLOADING...";
+            var fileName = encodeURIComponent(artist + " - " + title);
+            window.location.href = '/api/download?url=' + encodeURIComponent(url) + '&name=' + fileName;
         }
     </script>
 </body>
 </html>
 """
-
 @app.route('/')
 def index():
     return INDEX_HTML
