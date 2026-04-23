@@ -1,90 +1,145 @@
-from flask import Flask, request, jsonify, redirect
+from flask import Flask, request, jsonify, send_file
 import yt_dlp
 import os
-import requests
+import re
 
 app = Flask(__name__)
 
-# A list of reliable public Invidious instances
-INVIDIOUS_INSTANCES = [
-    "https://inv.tux.rs",
-    "https://invidious.nerdvpn.de",
-    "https://iv.melmac.space",
-    "https://invidious.slipfox.xyz"
-]
-
+# --- THE FRONTEND (Dark Theme, Mobile Scaled, IE Compatible) ---
 INDEX_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>MEDIA STATION</title>
+    <title>SC DOWNLOADER</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: "Courier New", monospace; padding: 20px; background: #c0c0c0; }
-        .box { border: 2px solid #000; background: #d4d0c8; padding: 15px; width: 500px; box-shadow: 2px 2px 0px #000; margin: auto; }
-        .title-bar { background: #000080; color: #fff; padding: 3px; font-weight: bold; margin: -15px -15px 15px -15px; }
-        .result-item { margin-bottom: 15px; padding: 10px; border: 1px solid #808080; background: #fff; }
-        #status { font-weight: bold; margin: 10px 0; color: #000080; min-height: 20px; }
-        .menu-btn { width: 100%; padding: 15px; margin-bottom: 10px; font-weight: bold; cursor: pointer; font-family: "Courier New", monospace; }
-        button { cursor: pointer; padding: 5px; font-family: "Courier New", monospace; }
-        #main-ui { display: none; }
+        body { 
+            font-family: "Courier New", monospace; 
+            padding: 10px; 
+            background: #121212; 
+            color: #e0e0e0; 
+        }
+        .box { 
+            border: 2px solid #333; 
+            background: #1e1e1e; 
+            padding: 15px; 
+            max-width: 480px; 
+            margin: auto; 
+            box-shadow: 4px 4px 0px #000; 
+        }
+        .title-bar { 
+            background: #ff5500; 
+            color: #fff; 
+            padding: 5px; 
+            font-weight: bold; 
+            margin: -15px -15px 15px -15px; 
+            text-align: center;
+        }
+        .result-item { 
+            margin-bottom: 15px; 
+            padding: 10px; 
+            border: 1px solid #444; 
+            background: #252525; 
+        }
+        #status { 
+            font-weight: bold; 
+            margin: 10px 0; 
+            color: #ff5500; 
+            min-height: 20px; 
+        }
+        input[type="text"] { 
+            width: 95%; 
+            padding: 8px; 
+            background: #333; 
+            border: 1px solid #555; 
+            color: #fff; 
+            margin-bottom: 10px;
+        }
+        button { 
+            cursor: pointer; 
+            padding: 10px; 
+            font-family: "Courier New", monospace; 
+            background: #444; 
+            color: #fff; 
+            border: 1px solid #666; 
+            width: 100%;
+        }
+        button:active { background: #ff5500; }
+        small { color: #aaa; }
     </style>
 </head>
 <body>
     <div class="box">
-        <div class="title-bar"> MEDIA_STATION_INVIDIOUS.EXE</div>
-        <div id="home-menu">
-            <p>SELECT STATION:</p>
-            <button class="menu-btn" onclick="openStation('sc')">SOUNDCLOUD (MP3)</button>
-            <button class="menu-btn" onclick="openStation('yt')">YOUTUBE (VIA INVIDIOUS)</button>
-        </div>
-        <div id="main-ui">
-            <button onclick="location.reload()"><< MENU</button>
-            <input type="text" id="q" style="width:60%;">
-            <button onclick="search()">SEARCH</button>
-            <div id="status">Status: Ready.</div>
-            <div id="results"></div>
-        </div>
+        <div class="title-bar">SC DOWNLOADER</div>
+        
+        <input type="text" id="q" placeholder="Search SoundCloud...">
+        <button type="button" onclick="search()">SEARCH</button>
+        
+        <div id="status">Status: Ready.</div>
+        <div id="results"></div>
     </div>
-    <script>
-        var mode = 'sc';
-        function openStation(m) {
-            mode = m;
-            document.getElementById('home-menu').style.display = 'none';
-            document.getElementById('main-ui').style.display = 'block';
-        }
+
+    <script type="text/javascript">
         function search() {
             var q = document.getElementById('q').value;
+            var status = document.getElementById('status');
             var resDiv = document.getElementById('results');
-            document.getElementById('status').innerHTML = "Searching...";
+            if(!q) return;
+
+            status.innerHTML = "Status: Searching...";
             resDiv.innerHTML = "";
-            
+
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', '/api/search?mode='+mode+'&q='+encodeURIComponent(q), true);
+            var url = '/api/search?q=' + encodeURIComponent(q) + '&t=' + new Date().getTime();
+            
+            xhr.open('GET', url, true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     var data = JSON.parse(xhr.responseText);
-                    document.getElementById('status').innerHTML = data.length + " found.";
+                    status.innerHTML = "Status: " + data.length + " tracks.";
                     for (var i = 0; i < data.length; i++) {
-                        var div = document.createElement('div');
-                        div.className = 'result-item';
-                        div.innerHTML = '<small>'+data[i].author+'</small><br><b>'+data[i].title+'</b><br><br>';
-                        var btn = document.createElement('button');
-                        btn.innerHTML = "DOWNLOAD / STREAM";
-                        btn.onclick = (function(url){ return function(){
-                            document.getElementById('status').innerHTML = "Redirecting to stream...";
-                            window.location.href = '/api/download?mode='+mode+'&url='+encodeURIComponent(url);
-                        }})(data[i].url);
-                        div.appendChild(btn);
-                        resDiv.appendChild(div);
+                        renderTrack(data[i], resDiv);
                     }
                 }
             };
             xhr.send();
         }
+
+        function renderTrack(item, container) {
+            var itemDiv = document.createElement('div');
+            itemDiv.className = 'result-item';
+            
+            var artist = document.createElement('small');
+            artist.appendChild(document.createTextNode(item.artist));
+            itemDiv.appendChild(artist);
+            itemDiv.appendChild(document.createElement('br'));
+            
+            var title = document.createElement('b');
+            title.appendChild(document.createTextNode(item.title));
+            itemDiv.appendChild(title);
+            itemDiv.appendChild(document.createElement('br'));
+            itemDiv.appendChild(document.createElement('br'));
+            
+            var btn = document.createElement('button');
+            btn.innerHTML = "DOWNLOAD MP3";
+            
+            (function(u, a, t) {
+                btn.onclick = function() {
+                    document.getElementById('status').innerHTML = "Status: Processing...";
+                    var name = encodeURIComponent(a + " - " + t);
+                    window.location.href = '/api/download?url=' + encodeURIComponent(u) + '&name=' + name;
+                };
+            })(item.url, item.artist, item.title);
+            
+            itemDiv.appendChild(btn);
+            container.appendChild(itemDiv);
+        }
     </script>
 </body>
 </html>
 """
+
+# --- THE BACKEND ---
 
 @app.route('/')
 def index():
@@ -93,31 +148,55 @@ def index():
 @app.route('/api/search')
 def search_api():
     query = request.args.get('q')
-    mode = request.args.get('mode', 'sc')
-    prefix = "scsearch5:" if mode == "sc" else "ytsearch5:"
-    
-    with yt_dlp.YoutubeDL({'quiet': True, 'extract_flat': True}) as ydl:
+    ydl_opts = {'quiet': True, 'extract_flat': True}
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
-            info = ydl.extract_info(f"{prefix}{query}", download=False)
-            return jsonify([{'title': e.get('title'), 'url': e.get('url'), 'author': e.get('uploader') or e.get('channel')} for e in info['entries']])
+            info = ydl.extract_info(f"scsearch5:{query}", download=False)
+            entries = [{
+                'title': e.get('title'), 
+                'url': e.get('url'), 
+                'artist': e.get('uploader', 'Unknown')
+            } for e in info['entries']]
+            return jsonify(entries)
         except:
             return jsonify([])
 
 @app.route('/api/download')
 def download_api():
     url = request.args.get('url')
-    mode = request.args.get('mode', 'sc')
+    raw_name = request.args.get('name', 'track')
+    clean_name = re.sub(r'[^a-zA-Z0-9 \-]', '', raw_name).strip()
     
-    if mode == 'yt':
-        # Extract the Video ID
-        video_id = url.split("v=")[-1]
-        # Use a public Invidious instance to get the stream
-        # This redirects the user's browser to the Invidious download page
-        instance = INVIDIOUS_INSTANCES 
-        return redirect(f"{instance}/latest_version?id={video_id}&itag=22")
+    temp_file = "sc_temp"
     
-    # SoundCloud still uses the old method because it's rarely blocked
-    return redirect(f"https://www.google.com/search?q=direct+download+fallback")
+    # Precise cleanup
+    if os.path.exists(temp_file + ".mp3"):
+        try: os.remove(temp_file + ".mp3")
+        except: pass
+
+    opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': temp_file,
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.download([url])
+        
+        return send_file(
+            temp_file + ".mp3", 
+            as_attachment=True, 
+            download_name=f"{clean_name}.mp3", 
+            mimetype="audio/mpeg"
+        )
+    except Exception as e:
+        return f"Error: {str(e)}", 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
