@@ -5,12 +5,11 @@ import re
 
 app = Flask(__name__)
 
-# --- THE FRONTEND (Dark Theme, Mobile Scaled, IE Compatible) ---
 INDEX_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SC DOWNLOADER</title>
+    <title>Soundcloud Downloader</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { 
@@ -70,7 +69,7 @@ INDEX_HTML = """
 </head>
 <body>
     <div class="box">
-        <div class="title-bar">SC DOWNLOADER</div>
+        <div class="title-bar">Soundcloud Downloader</div>
         
         <input type="text" id="q" placeholder="Search SoundCloud...">
         <button type="button" onclick="search()">SEARCH</button>
@@ -139,7 +138,6 @@ INDEX_HTML = """
 </html>
 """
 
-# --- THE BACKEND ---
 
 @app.route('/')
 def index():
@@ -169,7 +167,6 @@ def download_api():
     
     temp_file = "sc_temp"
     
-    # Precise cleanup
     if os.path.exists(temp_file + ".mp3"):
         try: os.remove(temp_file + ".mp3")
         except: pass
