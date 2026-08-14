@@ -27,7 +27,7 @@ INDEX_HTML = """
             box-shadow: 4px 4px 0px #000; 
         }
         .title-bar { 
-            background: #00e5ff; 
+            background: #00b7ff; 
             color: #fff; 
             padding: 5px; 
             font-weight: bold; 
@@ -43,7 +43,7 @@ INDEX_HTML = """
         #status { 
             font-weight: bold; 
             margin: 10px 0; 
-            color: #ff5500; 
+            color: #00b7ff; 
             min-height: 20px; 
         }
         input[type="text"] { 
