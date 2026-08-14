@@ -27,7 +27,7 @@ INDEX_HTML = """
             box-shadow: 4px 4px 0px #000; 
         }
         .title-bar { 
-            background: #ff5500; 
+            background: #00e5ff; 
             color: #fff; 
             padding: 5px; 
             font-weight: bold; 
@@ -63,7 +63,7 @@ INDEX_HTML = """
             border: 1px solid #666; 
             width: 100%;
         }
-        button:active { background: #ff5500; }
+        button:active { background: #00e5ff; }
         small { color: #aaa; }
     </style>
 </head>
@@ -85,7 +85,7 @@ INDEX_HTML = """
             var resDiv = document.getElementById('results');
             if(!q) return;
 
-            status.innerHTML = "Status: Searching...";
+            status.innerHTML = "we on it";
             resDiv.innerHTML = "";
 
             var xhr = new XMLHttpRequest();
@@ -124,7 +124,7 @@ INDEX_HTML = """
             
             (function(u, a, t) {
                 btn.onclick = function() {
-                    document.getElementById('status').innerHTML = "Status: Processing...";
+                    document.getElementById('status').innerHTML = "anytime now...";
                     var name = encodeURIComponent(a + " - " + t);
                     window.location.href = '/api/download?url=' + encodeURIComponent(u) + '&name=' + name;
                 };
