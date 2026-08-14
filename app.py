@@ -9,11 +9,11 @@ INDEX_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Soundcloud Downloader</title>
+    <title>Soundcloud music downloader</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { 
-            font-family: "Courier New", monospace; 
+            font-family: "Google Sans", monospace; 
             padding: 10px; 
             background: #121212; 
             color: #e0e0e0; 
@@ -57,7 +57,7 @@ INDEX_HTML = """
         button { 
             cursor: pointer; 
             padding: 10px; 
-            font-family: "Courier New", monospace; 
+            font-family: "Google Sans", monospace; 
             background: #444; 
             color: #fff; 
             border: 1px solid #666; 
@@ -69,12 +69,12 @@ INDEX_HTML = """
 </head>
 <body>
     <div class="box">
-        <div class="title-bar">Soundcloud Downloader</div>
+        <div class="title-bar">Soundcloud music downloader</div>
         
-        <input type="text" id="q" placeholder="Search SoundCloud...">
+        <input type="text" id="q" placeholder="Search here: ">
         <button type="button" onclick="search()">SEARCH</button>
         
-        <div id="status">Status: Ready.</div>
+        <div id="status">we all set</div>
         <div id="results"></div>
     </div>
 
@@ -120,7 +120,7 @@ INDEX_HTML = """
             itemDiv.appendChild(document.createElement('br'));
             
             var btn = document.createElement('button');
-            btn.innerHTML = "DOWNLOAD MP3";
+            btn.innerHTML = "Download MP3";
             
             (function(u, a, t) {
                 btn.onclick = function() {
